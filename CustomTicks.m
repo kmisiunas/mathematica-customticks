@@ -89,6 +89,8 @@ MinorTickStyle::usage="Option for LinTicks.";
 MinorTickIndexRange::usage="Option for LinTicks.";
 MinorTickIndexTransformation::usage="Option for LinTicks.";
 
+NumberOfMinorTicks::usage="Option for number of ticks to be placed in between major ticks"
+
 FixedPointForm::usage="FixedPointForm[x,r] formats x with r digits to the right of the decimal point.  It allows as many digits as necessary to the left of the decimal point, thereby avoiding the rounding problem associated with PaddedForm[x,{n,f}] when n is specified too small (PaddedForm zeros out some of the rightmost digits of the number).  It also suppresses any trailing decimal point when r=0.  FixedPointForm[x,{l,r}] formats x as a fixed-point number with l digits (or spaces) to the left and r to the right of the decimal point.  By default, for positive numbers a blank padding space appears at left (where a minus sign would be for negative numbers), but with NumberSigns->Automatic this space is suppressed.";
 FractionDigits::usage="FractionDigits[x] returns the number of digits to the right of the point in the decimal representation of x.  It will return large values, determined by Precision, for some numbers, e.g., non-terminating rationals.";
 FractionDigitsBase::usage="Option for FractionDigits.";
@@ -295,13 +297,14 @@ Options[LinTicks] = {
 	MinorTickIndexTransformation->Identity,
 	TickTest->(True&),
 	TickLabelTest->(True&),
+	NumberOfMinorTicks->4,
 	Debug->False
 };
 
 
-LinTicks[RawMajorCoordList_List,RawMinorCoordList_List,Opts___]:=Module[
+LinTicks[RawMajorCoordList_List,RawMinorCoordList_List,Opts___] := Module[
 	{
-		FullOpts= Flatten[{Opts,Options[LinTicks]}],
+		FullOpts = Flatten[{Opts,Options[LinTicks]}],
 		MajorCoordList,
 		LabeledCoordList,
 		MinorCoordList,
@@ -409,37 +412,49 @@ LinTicks[RawMajorCoordList_List,RawMinorCoordList_List,Opts___]:=Module[
 
 
 LinTicks[x1_?NumericQ,x2_?NumericQ,Opts___?OptionQ] := Module[
-	{UsedRange,DummyGraphics,TickList,MajorCoordList,MinorCoordList,x},
-
-	(* since V1.82-k1 rewritten *)
-	(*try using FindDivisions function *)
+	{
+		FullOpts = Flatten[{Opts,Options[LinTicks]}],
+		UsedRange,
+		DummyGraphics,
+		TickList,
+		MajorCoordList,
+		MinorCoordList,x},
 
 	(* extend any round-number range by a tiny amount *)
 	(* this seems to make Mathematica 4.1 give a much cleaner, sparser set of ticks *)
 	UsedRange = If[ And@@ApproxIntegerQ/@{x1,x2},
-		ExtendRange[{x1,x2},{1*^-5,1*^-5}],
+		ExtendRange[{x1,x2}, {1*^-5,1*^-5}],
 		{x1,x2}
 	]; 
 
 	(* extract raw tick coordinates from Mathematica *)
+	(* consider using FindDivisions in the future *)
 	(* Line[{}] primative since Mathematica 6 requires nonnull primative list in Graphics for suitable ticks to be produced -- reported by J. Grosse *)
 	DummyGraphics = Show[Graphics[{Line[{}]}], PlotRange->{UsedRange,Automatic}, DisplayFunction->Identity];
 	TickList = First[Ticks/.AbsoluteOptions[DummyGraphics,Ticks]];
-	MajorCoordList = Cases[TickList,{x_,_Real,___}:>x];
-	MinorCoordList = Cases[TickList,{x_,"",___}:>x];
+	MajorCoordList = Cases[TickList,{x_,_Real,___}:>x]; 
+	(* MinorCoordList = Cases[TickList,{x_,"",___}:>x];  (* old code *) *)
+	(* since V1.82-k1 new code - custom number of ticks *)
+	MinorCoordList = Module[  {period, extendedMajorCoordList, noOfMinorTicks, CreateMinorTicks},
+		period = Abs[ MajorCoordList[[2]] - MajorCoordList[[1]] ];
+		extendedMajorCoordList = {MajorCoordList[[1]] - period} ~ Join ~ MajorCoordList;
+		noOfMinorTicks = NumberOfMinorTicks/.FullOpts;
+		CreateMinorTicks[from_] := (period/(noOfMinorTicks+1) * # + from) &/@ Range[noOfMinorTicks];
+		Flatten[ CreateMinorTicks/@extendedMajorCoordList ]
+	];
 
 	(* generate formatted tick mark specifications *)
-	LinTicks[MajorCoordList,MinorCoordList,Opts]
+	LinTicks[MajorCoordList, MinorCoordList, Opts]
 ]
 
 
 LinTicks[x1_?NumericQ,x2_?NumericQ,Spacing_?NumericQ,MinorSubdivs:_Integer,Opts___] := Module[
 	{
-		FullOpts= Flatten[{Opts,Options[LinTicks]}],
+		FullOpts = Flatten[{Opts,Options[LinTicks]}],
 		MaxMajorIndex,
-		MajorCoordList,MinorCoordList
+		MajorCoordList,
+		MinorCoordList
 	},
-
 	(* preliminary calculations  *)
 	MaxMajorIndex=Round[(x2-x1)/Spacing];
 
