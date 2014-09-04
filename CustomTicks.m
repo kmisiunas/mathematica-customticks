@@ -165,59 +165,64 @@ FractionDigits[x_?NumericQ,Opts___?OptionQ] := Module[
 ];
 
 
-FixedPointForm::leftdigits="Insufficient left digits (`1`) specified for formatting of number (`2`).  Consider using automatic version FixedPointForm[x,r].";FixedPointForm::numbersigns="Unsupported form of NumberSigns.";
-Options[FixedPointForm]={NumberSigns->{"-",""},NumberPoint->".",SignPadding->False,Debug->False};
-FixedPointForm[x_?NumberQ,{l_Integer?NonNegative,r_Integer?NonNegative},Opts___?OptionQ]:=Module[
-{
-FullOpts=Flatten[{Opts,Options[FixedPointForm]}],
-sx,mx,SignString,LeftDigits,RightDigits,SeparatorString,SignChars,PaddingChars,
-NaturalLeftDigits,
-PartialSigns,FullSigns,
-AutoOpts
-},
-sx=Sign[x];
-mx=Abs[N[x]];
-(*LeftDigits=IntegerDigits[IntegerPart[mx]];*)
-(*RightDigits=First[RealDigits[mx,10,r,-1]];*)
-(*RightDigits=First[RealDigits[FractionalPart[mx],10,r,-1]];*)
-(*RightDigits=IntegerDigits[Round[FractionalPart[mx]*10^r],10,r];*) 
-(* round rather than truncate, to avoid, e.g., 2.3999999999 formatting as 2.3 *)
-LeftDigits=IntegerDigits[IntegerPart[Round[mx*10^r]/10^r]];
-RightDigits=IntegerDigits[Round[mx*10^r],10,r];
-If[
-(Debug/.FullOpts),
-Print[{x,l,r},": ",{sx,mx,LeftDigits,RightDigits}]
+FixedPointForm::leftdigits = "Insufficient left digits (`1`) specified for formatting of number (`2`).  Consider using automatic version FixedPointForm[x,r].";
+FixedPointForm::numbersigns = "Unsupported form of NumberSigns.";
+
+Options[FixedPointForm] = {
+	NumberSigns->{"-",""},
+	NumberPoint->".",
+	SignPadding->False,
+	Debug->False
+};
+
+FixedPointForm[x_?NumberQ,{l_Integer?NonNegative,r_Integer?NonNegative},Opts___?OptionQ] := Module[
+	{
+		FullOpts=Flatten[{Opts,Options[FixedPointForm]}],
+		sx,mx,SignString,LeftDigits,RightDigits,SeparatorString,SignChars,PaddingChars,
+		NaturalLeftDigits,
+		PartialSigns,FullSigns,
+		AutoOpts
+	},
+	sx=Sign[x];
+	mx=Abs[N[x]];
+	(*LeftDigits=IntegerDigits[IntegerPart[mx]];*)
+	(*RightDigits=First[RealDigits[mx,10,r,-1]];*)
+	(*RightDigits=First[RealDigits[FractionalPart[mx],10,r,-1]];*)
+	(*RightDigits=IntegerDigits[Round[FractionalPart[mx]*10^r],10,r];*) 
+	(* round rather than truncate, to avoid, e.g., 2.3999999999 formatting as 2.3 *)
+	LeftDigits = IntegerDigits[IntegerPart[Round[mx*10^r]/10^r]];
+	RightDigits = IntegerDigits[Round[mx*10^r],10,r];
+	If[  (Debug/.FullOpts),
+		Print[{x,l,r},": ",{sx,mx,LeftDigits,RightDigits}]
+	];
+	SeparatorString = If[  r==0, "", (NumberPoint/.FullOpts)];
+	NaturalLeftDigits = Length[LeftDigits];
+	If[  l<NaturalLeftDigits,
+		Message[FixedPointForm::leftdigits,l,x]
+	];
+	FullSigns = Switch[  (NumberSigns/.FullOpts),
+		Automatic, {{"-"},{}},
+		{_String,_String}, PartialSigns = Characters/@(NumberSigns/.FullOpts);
+		PadLeft[#,Max[Length/@PartialSigns]," "]&/@PartialSigns,
+		_, Message[FixedPointForm::numbersigns];{{"-"},{" "}}
+	];
+	SignChars = Switch[  sx,
+		-1, First[FullSigns],
+		+1|0, Last[FullSigns]
+	];
+	PaddingChars = Switch[  SignPadding/.FullOpts,
+		False, PadLeft[SignChars,Max[l+Length[SignChars]-NaturalLeftDigits,Length[SignChars]]," "],
+		True, PadRight[SignChars,Max[l+Length[SignChars]-NaturalLeftDigits,Length[SignChars]]," "]
+	];
+	StringJoin@@Join[PaddingChars,ToString/@LeftDigits,{SeparatorString},ToString/@RightDigits]
 ];
-SeparatorString=If[r==0,"",(NumberPoint/.FullOpts)];
-NaturalLeftDigits=Length[LeftDigits];
-If[l<NaturalLeftDigits,
-Message[FixedPointForm::leftdigits,l,x]
-];
-FullSigns=Switch[
-(NumberSigns/.FullOpts),
-Automatic,{{"-"},{}},
-{_String,_String},
-PartialSigns=Characters/@(NumberSigns/.FullOpts);
-PadLeft[#,Max[Length/@PartialSigns]," "]&/@PartialSigns,
-_,Message[FixedPointForm::numbersigns];{{"-"},{" "}}
-];
-SignChars=Switch[
-sx,
--1,First[FullSigns],
-+1|0,Last[FullSigns]
-];
-PaddingChars=Switch[
-SignPadding/.FullOpts,
-False,PadLeft[SignChars,Max[l+Length[SignChars]-NaturalLeftDigits,Length[SignChars]]," "],
-True,PadRight[SignChars,Max[l+Length[SignChars]-NaturalLeftDigits,Length[SignChars]]," "]
-];
-StringJoin@@Join[PaddingChars,ToString/@LeftDigits,{SeparatorString},ToString/@RightDigits]
-];
-FixedPointForm[x_?NumberQ,RightDigits_Integer?NonNegative,Opts___?OptionQ]:=FixedPointForm[x,{Length[IntegerDigits[IntegerPart[N[x]]]],RightDigits},Opts];
-FixedPointForm[x:Except[_?NumberQ],{l_Integer?NonNegative,r_Integer?NonNegative}|(RightDigits_Integer?NonNegative),Opts___?OptionQ]:=x;
+
+FixedPointForm[x_?NumberQ,RightDigits_Integer?NonNegative,Opts___?OptionQ] := 
+	FixedPointForm[x,{Length[IntegerDigits[IntegerPart[N[x]]]],RightDigits},Opts];
+FixedPointForm[x:Except[_?NumberQ],{l_Integer?NonNegative,r_Integer?NonNegative}|(RightDigits_Integer?NonNegative),Opts___?OptionQ] := x;
 
 
-FixedTickFunction[ValueList_List,DecimalDigits_]:=Module[
+FixedTickFunction[ValueList_List,DecimalDigits_] := Module[
 	{ LeftDigits, RightDigits, x },
 		LeftDigits=If[ ValueList==={},
 			0,
@@ -233,7 +238,7 @@ FixedTickFunction[ValueList_List,DecimalDigits_]:=Module[
 ];
 
 
-ResolveTickLength[d_?NumericQ,TickLengthScale_?NumericQ,TickDirection:(In|Out|All),TickReverse:(True|False)]:=Module[
+ResolveTickLength[d_?NumericQ,TickLengthScale_?NumericQ,TickDirection:(In|Out|All),TickReverse:(True|False)] := Module[
 	{LengthPair},
 
 	(* upgrade single length to {in,out} pair *)
@@ -251,7 +256,7 @@ ResolveTickLength[d_?NumericQ,TickLengthScale_?NumericQ,TickDirection:(In|Out|Al
 ];
 
 
-ResolveTickLength[{d1_?NumericQ,d2_?NumericQ},TickLengthScale_?NumericQ,TickDirection:(In|Out|All),TickReverse:(True|False)]:=Module[
+ResolveTickLength[{d1_?NumericQ,d2_?NumericQ},TickLengthScale_?NumericQ,TickDirection:(In|Out|All),TickReverse:(True|False)] := Module[
 	{LengthPair},
 
 	(* ignore TickDirection if given {in,out} pair *)
@@ -485,7 +490,8 @@ Options[LogTicks] = {
 };
 
 
-LogTicks::oldsyntax = "The number of minor subdivisions no longer needs to be specified for LogTicks (see CustomTicks manual for new syntax).";LogTicks::minorsubdivs="Number of minor subdivisions `1` specified for LogTicks is not 1 or \[LeftCeiling]base\[RightCeiling]-1 (i.e., \[LeftCeiling]base\[RightCeiling]-2 tick marks) and so is being ignored.";
+LogTicks::oldsyntax = "The number of minor subdivisions no longer needs to be specified for LogTicks (see CustomTicks manual for new syntax).";
+LogTicks::minorsubdivs="Number of minor subdivisions `1` specified for LogTicks is not 1 or \[LeftCeiling]base\[RightCeiling]-1 (i.e., \[LeftCeiling]base\[RightCeiling]-2 tick marks) and so is being ignored.";
 
 LogTicks[Base:(_?NumericQ):10,p1Raw_?NumericQ,p2Raw_?NumericQ,Opts___?OptionQ] := Module[
 	{
@@ -521,9 +527,12 @@ LogTicks[Base:(_?NumericQ):10,p1Raw_?NumericQ,p2Raw_?NumericQ,Opts___?OptionQ] :
 
 
 (* syntax traps for old syntax -- but will not catch usual situation in which base was unspecified but subdivs was *)
-LogTicks[Base_?NumericQ,p1_Integer,p2_Integer,MinorSubdivs_Integer,Opts___?OptionQ]/;(MinorSubdivs==Max[Ceiling[Base]-1,1]):=(Message[LogTicks::oldsyntax];LogTicks[Base,p1,p2,ShowMinorTicks->True,Opts]);
-LogTicks[Base_?NumericQ,p1_Integer,p2_Integer,MinorSubdivs_Integer,Opts___?OptionQ]/;(MinorSubdivs==1):=(Message[LogTicks::oldsyntax];LogTicks[Base,p1,p2,ShowMinorTicks->False,Opts]);
-LogTicks[Base_?NumericQ,p1_Integer,p2_Integer,MinorSubdivs_Integer,Opts___?OptionQ]/;((MinorSubdivs!=Max[Ceiling[Base]-1,1])&&(MinorSubdivs!=1)):=(Message[LogTicks::oldsyntax];Message[LogTicks::minorsubdivs,MinorSubdivs];LogTicks[Base,p1,p2,ShowMinorTicks->True,Opts]);
+LogTicks[Base_?NumericQ,p1_Integer,p2_Integer,MinorSubdivs_Integer,Opts___?OptionQ]/;(MinorSubdivs==Max[Ceiling[Base]-1,1]) := 
+	(Message[LogTicks::oldsyntax];LogTicks[Base,p1,p2,ShowMinorTicks->True,Opts]);
+LogTicks[Base_?NumericQ,p1_Integer,p2_Integer,MinorSubdivs_Integer,Opts___?OptionQ]/;(MinorSubdivs==1) := 
+	(Message[LogTicks::oldsyntax];LogTicks[Base,p1,p2,ShowMinorTicks->False,Opts]);
+LogTicks[Base_?NumericQ,p1_Integer,p2_Integer,MinorSubdivs_Integer,Opts___?OptionQ]/;((MinorSubdivs!=Max[Ceiling[Base]-1,1])&&(MinorSubdivs!=1)) := 
+	(Message[LogTicks::oldsyntax];Message[LogTicks::minorsubdivs,MinorSubdivs];LogTicks[Base,p1,p2,ShowMinorTicks->True,Opts]);
 
 
 AugmentTick[LabelFunction_,DefaultLength_List,DefaultStyle_List,x_?NumericQ] := 
@@ -549,6 +558,7 @@ AugmentTicks[DefaultLength_List,DefaultStyle_List,TickList_List]:=
 
 
 AugmentAxisTickOptions::numaxes="Tick lists specified for more than `1` axes.";
+
 AugmentAxisTickOptions[NumAxes_Integer,TickLists:None] := Table[{},{NumAxes}];
 AugmentAxisTickOptions[NumAxes_Integer,TickLists_List] := Module[
 	{},
@@ -569,7 +579,8 @@ TickQ[x_] := MatchQ[x,TickPattern];
 TickListQ[x_] := MatchQ[x,{}|{TickPattern..}];
 
 
-LimitTickRange[Range:{x1_,x2_},TickList_List]:=Cases[TickList,((x_?NumericQ)|{x_,___})/;ApproxInRange[{x1,x2},x]];
+LimitTickRange[Range:{x1_,x2_},TickList_List] := 
+	Cases[TickList,((x_?NumericQ)|{x_,___})/;ApproxInRange[{x1,x2},x]];
 
 
 LimitTickLabelRange[Range:{x1_,x2_},TickList_List] := Union[
@@ -584,7 +595,8 @@ StripTickLabels[TickList_List] := Replace[TickList,{x_,l_,r___}:>{x,"",r},{1}];
 StripTickLabels[f_Symbol] := Composition[StripTickLabels,f];
 
 
-TransformTicks[PosnTransformation_,LengthTransformation_,TickList_List] := Replace[TickList,{x_,t_,l:{_,_},RestSeq___}:>{PosnTransformation@x,t,LengthTransformation/@l,RestSeq},{1}];
+TransformTicks[PosnTransformation_,LengthTransformation_,TickList_List] := 
+	Replace[TickList,{x_,t_,l:{_,_},RestSeq___}:>{PosnTransformation@x,t,LengthTransformation/@l,RestSeq},{1}];
 
 
 End[];
