@@ -8,6 +8,8 @@ http://scidraw.nd.edu/
 
 http://library.wolfram.com/infocenter/MathSource/5599/
 
+https://github.com/mark-caprio/CustomTicks/issues/new
+
 ## Install
 
 Downland the `CustomTicks.m` and import package or run:
